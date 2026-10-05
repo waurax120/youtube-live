@@ -1,637 +1,84 @@
-// ================================
-// LIVE STATS - YouTube API接続版
-// ================================
+const STORAGE_KEY="liveStatsChannels";
+const API_URL="https://script.google.com/macros/s/AKfycbzcYXSL04zaQ2Bp1JJXZeLQmrXe7EgEDU_AOq_B4RKiEEa1H5tZUD4FLztk4kCfjk_t8A/exec";
 
-const STORAGE_KEY = "liveStatsChannels";
+const defaultChannels=[{id:crypto.randomUUID(),youtubeId:"UCjFkp8GTHneW5pZd3nY-Kfg",name:"すりぴいダッグ",url:"https://www.youtube.com/@SuripiiDuck",status:"登録済み",subscribers:173000}];
 
-// ★ここにApps ScriptのWebアプリURLを入れる
-const API_URL = "https://script.google.com/macros/s/AKfycby5JLiPRL5-m6sclrDbbzq3s1lUxo_GUjEfau4Rr3drs4ibFx9M8fd7hqkKUMBxr68lDg/exec";
+function loadChannels(){try{const s=localStorage.getItem(STORAGE_KEY);if(s)return JSON.parse(s)}catch(e){console.warn(e)}localStorage.setItem(STORAGE_KEY,JSON.stringify(defaultChannels));return defaultChannels}
+let channels=loadChannels();
 
+const channelList=document.getElementById("channelList");
+const liveList=document.getElementById("liveList");
+const form=document.getElementById("channelForm");
+const addButton=document.getElementById("addChannelButton");
+const cancelButton=document.getElementById("cancelChannel");
+const saveButton=document.getElementById("saveChannel");
+const refreshButton=document.getElementById("refreshLiveButton");
+const input=document.getElementById("channelInput");
+const message=document.getElementById("formMessage");
 
-// ================================
-// 初期チャンネル
-// ================================
+function saveChannels(){localStorage.setItem(STORAGE_KEY,JSON.stringify(channels))}
+function escapeHtml(v){return String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+function getChannelInput(v){v=v.trim();if(/^UC[\w-]{20,}$/.test(v))return v;try{const u=new URL(v),p=u.pathname.split("/").filter(Boolean);if(p[0]?.startsWith("@"))return p[0];if(p[0]==="channel"&&p[1])return p[1]}catch(_){}return null}
 
-const defaultChannels = [
-  {
-    id: crypto.randomUUID(),
-    name: "すりぴいダッグ",
-    url: "https://www.youtube.com/@SuripiiDuck",
-    status: "登録済み"
-  }
-];
-
-
-// ================================
-// チャンネルデータ
-// ================================
-
-function loadChannels() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-
-    if (saved) {
-      return JSON.parse(saved);
-    }
-
-  } catch (e) {
-    console.warn("チャンネルデータの読み込みに失敗:", e);
-  }
-
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify(defaultChannels)
-  );
-
-  return defaultChannels;
+function getYouTubeChannel(inputValue){
+ return new Promise((resolve,reject)=>{
+  const cb="youtubeCallback_"+Date.now()+"_"+Math.floor(Math.random()*10000);
+  const s=document.createElement("script");
+  const timer=setTimeout(()=>{cleanup();reject(new Error("YouTube APIへの接続がタイムアウトしました"))},15000);
+  function cleanup(){clearTimeout(timer);delete window[cb];s.remove()}
+  window[cb]=data=>{cleanup();if(data.error){reject(new Error(data.error));return}resolve(data)};
+  s.onerror=()=>{cleanup();reject(new Error("YouTube APIに接続できませんでした"))};
+  s.src=API_URL+"?channel="+encodeURIComponent(inputValue)+"&callback="+encodeURIComponent(cb);
+  document.body.appendChild(s);
+ })
 }
 
-let channels = loadChannels();
-
-
-// ================================
-// HTML要素
-// ================================
-
-const channelList = document.getElementById("channelList");
-const form = document.getElementById("channelForm");
-const addButton = document.getElementById("addChannelButton");
-const cancelButton = document.getElementById("cancelChannel");
-const saveButton = document.getElementById("saveChannel");
-const input = document.getElementById("channelInput");
-const message = document.getElementById("formMessage");
-
-
-// ================================
-// 保存
-// ================================
-
-function saveChannels() {
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify(channels)
-  );
+function renderChannels(){
+ channelList.innerHTML="";
+ channels.forEach(c=>{
+  const card=document.createElement("div");card.className="channel-card";
+  const subs=c.subscribers?Number(c.subscribers).toLocaleString():"";
+  card.innerHTML=`<div class="channel-info"><span class="status-dot">●</span><div><div class="channel-name">${escapeHtml(c.name)}</div><div class="channel-url">${escapeHtml(c.url||"")}</div>${subs?`<div class="channel-url">登録者 ${subs}人</div>`:""}</div></div><div class="channel-actions"><button class="icon-btn" data-id="${escapeHtml(c.id)}">🗑 削除</button></div>`;
+  channelList.appendChild(card);
+ });
+ channelList.querySelectorAll(".icon-btn").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.id,t=channels.find(c=>c.id===id);if(t&&confirm(`「${t.name}」を登録チャンネルから削除しますか？`)){channels=channels.filter(c=>c.id!==id);saveChannels();renderChannels();refreshLive()}}))
 }
 
-
-// ================================
-// HTML安全化
-// ================================
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function renderLiveCard(channel,live){
+ const card=document.createElement("div");card.className="live-card";
+ if(!live||!live.isLive){card.innerHTML=`<div class="channel-name">${escapeHtml(channel.name)}</div><div class="channel-url">現在LIVEしていません</div>`;return card}
+ card.innerHTML=`<div class="live-head">${live.thumbnail?`<img class="live-thumb" src="${escapeHtml(live.thumbnail)}" alt="">`:""}<div><span class="live-badge">🔴 LIVE</span><h3 class="live-title">${escapeHtml(live.title)}</h3><div class="channel-url">${escapeHtml(channel.name)}</div><div class="live-meta"><span>👀 ${Number(live.concurrentViewers||0).toLocaleString()}人</span><span>💬 ${Number(live.commentCount||0).toLocaleString()}件</span><span>👍 ${Number(live.likeCount||0).toLocaleString()}件</span></div></div></div>`;
+ return card
 }
 
+async function fetchLive(c){const inputValue=c.youtubeId||getChannelInput(c.url);if(!inputValue)return null;try{const data=await getYouTubeChannel(inputValue);return data.live||null}catch(e){console.warn(c.name,e);return null}}
 
-// ================================
-// YouTube URLから情報を取り出す
-// ================================
-
-function getChannelInput(url) {
-
-  url = url.trim();
-
-  // チャンネルID
-  if (/^UC[\w-]{20,}$/.test(url)) {
-    return url;
-  }
-
-  try {
-    const u = new URL(url);
-
-    const parts = u.pathname
-      .split("/")
-      .filter(Boolean);
-
-    // @ハンドル
-    if (parts[0] && parts[0].startsWith("@")) {
-      return parts[0];
-    }
-
-    // /channel/UCxxxx
-    if (
-      parts[0] === "channel" &&
-      parts[1]
-    ) {
-      return parts[1];
-    }
-
-  } catch (e) {}
-
-  return null;
+async function refreshLive(){
+ liveList.innerHTML='<div class="empty-card">LIVE情報を更新中…</div>';refreshButton.disabled=true;
+ const cards=await Promise.all(channels.map(async c=>renderLiveCard(c,await fetchLive(c))));
+ liveList.innerHTML="";if(!cards.length)liveList.innerHTML='<div class="empty-card">登録チャンネルがありません。</div>';else cards.forEach(c=>liveList.appendChild(c));refreshButton.disabled=false
 }
 
-
-// ================================
-// YouTube APIからチャンネル取得
-// ================================
-
-function getYouTubeChannel(inputValue) {
-
-  return new Promise((resolve, reject) => {
-
-    const callbackName =
-      "youtubeCallback_" +
-      Date.now() +
-      "_" +
-      Math.floor(Math.random() * 10000);
-
-    const script =
-      document.createElement("script");
-
-    const timeout =
-      setTimeout(() => {
-
-        cleanup();
-
-        reject(
-          new Error(
-            "YouTube APIへの接続がタイムアウトしました"
-          )
-        );
-
-      }, 15000);
-
-
-    function cleanup() {
-
-      clearTimeout(timeout);
-
-      delete window[callbackName];
-
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-    }
-
-
-    window[callbackName] = function(data) {
-
-      cleanup();
-
-      if (data.error) {
-        reject(
-          new Error(data.error)
-        );
-        return;
-      }
-
-      resolve(data);
-    };
-
-
-    script.onerror = function() {
-
-      cleanup();
-
-      reject(
-        new Error(
-          "YouTube APIに接続できませんでした"
-        )
-      );
-    };
-
-
-    script.src =
-      API_URL +
-      "?channel=" +
-      encodeURIComponent(inputValue) +
-      "&callback=" +
-      encodeURIComponent(callbackName);
-
-
-    document.body.appendChild(script);
-  });
-}
-
-
-// ================================
-// チャンネル表示
-// ================================
-
-function renderChannels() {
-
-  channelList.innerHTML = "";
-
-  channels.forEach(channel => {
-
-    const card =
-      document.createElement("div");
-
-    card.className =
-      "channel-card";
-
-
-    const safeName =
-      escapeHtml(channel.name);
-
-
-    const safeUrl =
-      escapeHtml(
-        channel.url || ""
-      );
-
-
-    const subscribers =
-      channel.subscribers
-        ? Number(
-            channel.subscribers
-          ).toLocaleString()
-        : "";
-
-
-    card.innerHTML = `
-
-      <div class="channel-info">
-
-        <span class="status-dot">●</span>
-
-        <div>
-
-          <div class="channel-name">
-            ${safeName}
-          </div>
-
-          <div class="channel-url">
-            ${safeUrl}
-          </div>
-
-          ${
-            subscribers
-              ? `
-                <div class="channel-url">
-                  登録者 ${subscribers}人
-                </div>
-              `
-              : ""
-          }
-
-        </div>
-
-      </div>
-
-
-      <div class="channel-actions">
-
-        <button
-          class="icon-btn"
-          data-action="remove"
-          data-id="${channel.id}"
-        >
-          🗑 削除
-        </button>
-
-      </div>
-    `;
-
-
-    channelList.appendChild(card);
-  });
-
-
-  // 削除ボタン
-
-  channelList
-    .querySelectorAll(
-      '[data-action="remove"]'
-    )
-    .forEach(button => {
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          const id =
-            button.dataset.id;
-
-          const target =
-            channels.find(
-              c => c.id === id
-            );
-
-          if (!target) return;
-
-
-          if (
-            confirm(
-              `「${target.name}」を登録チャンネルから削除しますか？`
-            )
-          ) {
-
-            channels =
-              channels.filter(
-                c => c.id !== id
-              );
-
-            saveChannels();
-
-            renderChannels();
-          }
-
-        }
-      );
-    });
-}
-
-
-// ================================
-// フォーム
-// ================================
-
-function openForm() {
-
-  form.classList.remove(
-    "hidden"
-  );
-
-  input.value = "";
-
-  message.textContent = "";
-
-  input.focus();
-}
-
-
-function closeForm() {
-
-  form.classList.add(
-    "hidden"
-  );
-
-  input.value = "";
-
-  message.textContent = "";
-}
-
-
-addButton.addEventListener(
-  "click",
-  openForm
-);
-
-
-cancelButton.addEventListener(
-  "click",
-  closeForm
-);
-
-
-// ================================
-// チャンネル追加
-// ================================
-
-saveButton.addEventListener(
-  "click",
-  async () => {
-
-    const url =
-      input.value.trim();
-
-
-    if (!url) {
-
-      message.textContent =
-        "チャンネルURLを入力してください。";
-
-      return;
-    }
-
-
-    const channelInput =
-      getChannelInput(url);
-
-
-    if (!channelInput) {
-
-      message.textContent =
-        "YouTubeチャンネルURLまたはチャンネルIDを入力してください。";
-
-      return;
-    }
-
-
-    // 読み込み中
-
-    message.textContent =
-      "YouTubeからチャンネル情報を取得中...";
-
-
-    saveButton.disabled = true;
-
-
-    try {
-
-      const data =
-        await getYouTubeChannel(
-          channelInput
-        );
-
-
-      // 同じチャンネルが登録済みか確認
-
-      const alreadyExists =
-        channels.some(
-          channel =>
-            channel.youtubeId === data.id
-        );
-
-
-      if (alreadyExists) {
-
-        message.textContent =
-          "このチャンネルはすでに登録されています。";
-
-        saveButton.disabled = false;
-
-        return;
-      }
-
-
-      // 新しいチャンネル追加
-
-      channels.push({
-
-        id: crypto.randomUUID(),
-
-        youtubeId: data.id,
-
-        name: data.name,
-
-        url: url,
-
-        handle: data.handle,
-
-        thumbnail: data.thumbnail,
-
-        subscribers: data.subscribers,
-
-        views: data.views,
-
-        videos: data.videos,
-
-        status: "登録済み"
-
-      });
-
-
-      saveChannels();
-
-      renderChannels();
-
-      closeForm();
-
-
-      document
-        .getElementById("channels")
-        .scrollIntoView({
-          behavior: "smooth"
-        });
-
-
-    } catch (error) {
-
-      console.error(error);
-
-      message.textContent =
-        "エラー: " +
-        error.message;
-
-    }
-
-
-    saveButton.disabled = false;
-
-  }
-);
-
-
-// Enterキー
-
-input.addEventListener(
-  "keydown",
-  event => {
-
-    if (event.key === "Enter") {
-
-      saveButton.click();
-
-    }
-
-  }
-);
-
-
-// ================================
-// ランキングタブ
-// ================================
-
-const tabs =
-  document.querySelectorAll(
-    ".tab"
-  );
-
-const panels =
-  document.querySelectorAll(
-    ".ranking-panel"
-  );
-
-
-tabs.forEach(tab => {
-
-  tab.addEventListener(
-    "click",
-    () => {
-
-      tabs.forEach(t =>
-        t.classList.remove(
-          "active"
-        )
-      );
-
-      panels.forEach(p =>
-        p.classList.remove(
-          "active"
-        )
-      );
-
-
-      tab.classList.add(
-        "active"
-      );
-
-
-      document
-        .getElementById(
-          tab.dataset.target
-        )
-        .classList.add(
-          "active"
-        );
-
-    }
-  );
-
+function openForm(){form.classList.remove("hidden");input.value="";message.textContent="";input.focus()}
+function closeForm(){form.classList.add("hidden");input.value="";message.textContent=""}
+addButton.addEventListener("click",openForm);cancelButton.addEventListener("click",closeForm);
+
+saveButton.addEventListener("click",async()=>{
+ const url=input.value.trim(),ci=getChannelInput(url);
+ if(!ci){message.textContent="YouTubeチャンネルURLまたはチャンネルIDを入力してください。";return}
+ message.textContent="YouTubeからチャンネル情報を取得中…";saveButton.disabled=true;
+ try{
+  const data=await getYouTubeChannel(ci);
+  if(channels.some(c=>c.youtubeId===data.channel.id)){message.textContent="このチャンネルはすでに登録されています。";saveButton.disabled=false;return}
+  channels.push({id:crypto.randomUUID(),youtubeId:data.channel.id,name:data.channel.name,url,handle:data.channel.handle,thumbnail:data.channel.thumbnail,subscribers:data.channel.subscribers,views:data.channel.views,videos:data.channel.videos,status:"登録済み"});
+  saveChannels();renderChannels();closeForm();await refreshLive();document.getElementById("channels").scrollIntoView({behavior:"smooth"})
+ }catch(e){console.error(e);message.textContent="エラー: "+e.message}
+ saveButton.disabled=false
 });
+input.addEventListener("keydown",e=>{if(e.key==="Enter")saveButton.click()});
+refreshButton.addEventListener("click",refreshLive);
 
-
-// ================================
-// コメ稼ぎ判定
-// ================================
-
-function isCommentBaitCandidate(text) {
-
-  const value =
-    text.trim();
-
-
-  if (!value) {
-    return false;
-  }
-
-
-  // 大文字Wは除外
-
-  if (/^W+$/.test(value)) {
-    return false;
-  }
-
-
-  // 小文字wは対象
-
-  if (/^w+$/.test(value)) {
-    return true;
-  }
-
-
-  // 記号だけは除外
-
-  if (
-    /^[!！?？.。]+$/.test(value)
-  ) {
-    return false;
-  }
-
-
-  // URLは除外
-
-  if (
-    /^https?:\/\//i.test(value)
-  ) {
-    return false;
-  }
-
-
-  return true;
-}
-
-
-// ================================
-// 初期表示
-// ================================
+document.querySelectorAll(".tab").forEach(tab=>tab.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));document.querySelectorAll(".ranking-panel").forEach(p=>p.classList.remove("active"));tab.classList.add("active");document.getElementById(tab.dataset.target).classList.add("active")}));
 
 renderChannels();
+refreshLive();

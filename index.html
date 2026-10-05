@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LIVE STATS</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIVE STATS</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="header">
-  <div class="logo">LIVE <span>STATS</span></div>
+  <div class="logo">LIVE STATS</div>
   <nav>
     <a href="#channels">チャンネル</a>
     <a href="#live">LIVE</a>
@@ -16,105 +16,56 @@
     <a href="#history">過去LIVE</a>
   </nav>
 </header>
-
 <main>
-  <section class="hero">
-    <p class="eyebrow">YOUTUBE LIVE ANALYTICS</p>
-    <h1>ライブ配信を、<br><span>もっと面白く。</span></h1>
-    <p>チャット・Super Chat・出席・コメ稼ぎをまとめてチェック。</p>
-    <a class="button" href="#channels">チャンネルを登録する</a>
-  </section>
+<section class="hero">
+  <p class="eyebrow">YOUTUBE LIVE ANALYTICS</p>
+  <h1>登録チャンネルのLIVEを<br><span>まとめてチェック。</span></h1>
+  <p>登録したYouTubeチャンネルだけを対象に、LIVE情報を確認できます。</p>
+</section>
 
-  <section id="channels" class="section">
-    <div class="section-title">
-      <p class="eyebrow">CHANNELS</p>
-      <h2>登録チャンネル</h2>
-      <p class="sub">登録したYouTubeチャンネルだけを監視・集計します。</p>
+<section id="channels" class="section">
+  <div class="section-title">
+    <div><p class="eyebrow">CHANNELS</p><h2>登録チャンネル</h2></div>
+    <button id="addChannelButton" class="primary-btn">＋ チャンネルを追加</button>
+  </div>
+  <div id="channelForm" class="form-card hidden">
+    <label for="channelInput">YouTubeチャンネルURLまたはチャンネルID</label>
+    <input id="channelInput" placeholder="https://www.youtube.com/@SuripiiDuck">
+    <div class="form-actions">
+      <button id="cancelChannel" class="secondary-btn">キャンセル</button>
+      <button id="saveChannel" class="primary-btn">登録</button>
     </div>
+    <p id="formMessage" class="form-message"></p>
+  </div>
+  <div id="channelList" class="channel-list"></div>
+</section>
 
-    <div id="channelList" class="channel-list"></div>
+<section id="live" class="section">
+  <div class="section-title">
+    <div><p class="eyebrow">LIVE NOW</p><h2>現在のLIVE</h2></div>
+    <button id="refreshLiveButton" class="secondary-btn">↻ 更新</button>
+  </div>
+  <div id="liveList" class="live-list"></div>
+</section>
 
-    <button id="addChannelButton" class="add-channel">＋ チャンネルを追加</button>
+<section id="ranking" class="section">
+  <div class="section-title"><div><p class="eyebrow">RANKING</p><h2>ランキング</h2></div></div>
+  <div class="tabs">
+    <button class="tab active" data-target="regularPanel">常連度</button>
+    <button class="tab" data-target="superchatPanel">Super Chat</button>
+    <button class="tab" data-target="baitPanel">コメ稼ぎ</button>
+  </div>
+  <div id="regularPanel" class="ranking-panel active"><div class="empty-card">LIVEデータを蓄積すると常連度ランキングが表示されます。</div></div>
+  <div id="superchatPanel" class="ranking-panel"><div class="empty-card">Super Chatデータを蓄積するとランキングが表示されます。</div></div>
+  <div id="baitPanel" class="ranking-panel"><div class="empty-card">LIVEチャットデータを蓄積するとコメ稼ぎランキングが表示されます。</div></div>
+</section>
 
-    <div id="channelForm" class="form-card hidden">
-      <h3>YouTubeチャンネルを追加</h3>
-      <p>チャンネルURLまたはチャンネルIDを入力してください。</p>
-      <input id="channelInput" type="text" placeholder="https://www.youtube.com/@channel">
-      <div class="form-actions">
-        <button id="cancelChannel" class="secondary">キャンセル</button>
-        <button id="saveChannel" class="button small">登録する</button>
-      </div>
-      <p id="formMessage" class="message"></p>
-    </div>
-  </section>
-
-  <section id="live" class="section">
-    <div class="section-title">
-      <p class="eyebrow">LIVE NOW</p>
-      <h2>現在のLIVE</h2>
-    </div>
-    <div class="live-card">
-      <div>
-        <span class="live-badge">● LIVE</span>
-        <h3 id="liveTitle">配信データ待ち</h3>
-        <p id="liveDescription">YouTube API接続後、登録チャンネルのLIVEが表示されます。</p>
-      </div>
-      <div class="stats">
-        <div><b>0</b><small>視聴者</small></div>
-        <div><b>0</b><small>コメント</small></div>
-        <div><b>¥0</b><small>Super Chat</small></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="ranking" class="section">
-    <div class="section-title">
-      <p class="eyebrow">RANKING</p>
-      <h2>視聴者ランキング</h2>
-    </div>
-
-    <div class="tabs">
-      <button class="tab active" data-target="attendance">常連度</button>
-      <button class="tab" data-target="superchat">Super Chat</button>
-      <button class="tab" data-target="comments">コメ稼ぎ</button>
-    </div>
-
-    <div id="attendance" class="ranking-panel active">
-      <div class="rank"><strong>🥇</strong><b>データ待ち</b><span>0 / 0 LIVE</span></div>
-      <div class="rank"><strong>🥈</strong><b>データ待ち</b><span>---</span></div>
-      <div class="rank"><strong>🥉</strong><b>データ待ち</b><span>---</span></div>
-      <p class="note">皆勤賞：対象期間の全LIVEに出席したユーザーに付与予定。</p>
-    </div>
-
-    <div id="superchat" class="ranking-panel">
-      <div class="rank"><strong>🥇</strong><b>Super Chatランキング</b><span>¥0</span></div>
-      <div class="rank"><strong>🥈</strong><b>データ待ち</b><span>¥0</span></div>
-      <div class="rank"><strong>🥉</strong><b>データ待ち</b><span>¥0</span></div>
-    </div>
-
-    <div id="comments" class="ranking-panel">
-      <div class="rank"><strong>🥇</strong><b>w</b><span>0回</span></div>
-      <div class="rank"><strong>🥈</strong><b>草</b><span>0回</span></div>
-      <div class="rank"><strong>🥉</strong><b>えぐ</b><span>0回</span></div>
-      <p class="note">小文字の半角「w」は集計対象。大文字の半角「W」は対象外。</p>
-    </div>
-  </section>
-
-  <section id="history" class="section">
-    <div class="section-title">
-      <p class="eyebrow">HISTORY</p>
-      <h2>過去3ヶ月のLIVE</h2>
-    </div>
-    <div class="history-empty">
-      <p>登録チャンネルの過去LIVEはYouTube API接続後に自動表示されます。</p>
-    </div>
-  </section>
+<section id="history" class="section">
+  <div class="section-title"><div><p class="eyebrow">HISTORY</p><h2>過去LIVE</h2></div></div>
+  <div class="empty-card">過去LIVEの保存機能は次の段階で追加します。</div>
+</section>
 </main>
-
-<footer>
-  <p>LIVE STATS — YouTube LIVE viewer analytics</p>
-</footer>
-
+<footer>LIVE STATS</footer>
 <script src="script.js"></script>
 </body>
 </html>
