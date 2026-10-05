@@ -59,11 +59,43 @@ function renderChannels(){
  channelList.querySelectorAll(".icon-btn").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.id,t=channels.find(c=>c.id===id);if(t&&confirm(`「${t.name}」を登録チャンネルから削除しますか？`)){channels=channels.filter(c=>c.id!==id);saveChannels();renderChannels();refreshLive()}}))
 }
 
+function formatElapsed(startTime){
+ const start=Date.parse(startTime||"");
+ if(!Number.isFinite(start)) return "—";
+ const diff=Math.max(0,Date.now()-start);
+ const totalSeconds=Math.floor(diff/1000);
+ const h=Math.floor(totalSeconds/3600);
+ const m=Math.floor((totalSeconds%3600)/60);
+ const sec=totalSeconds%60;
+ return h>0
+   ? `${h}時間${String(m).padStart(2,"0")}分${String(sec).padStart(2,"0")}秒`
+   : `${m}分${String(sec).padStart(2,"0")}秒`;
+}
+
 function renderLiveCard(channel,live){
- const card=document.createElement("div");card.className="live-card";
- if(!live||!live.isLive){card.innerHTML=`<div class="channel-name">${escapeHtml(channel.name)}</div><div class="channel-url">現在LIVEしていません</div>`;return card}
- card.innerHTML=`<div class="live-head">${live.thumbnail?`<img class="live-thumb" src="${escapeHtml(live.thumbnail)}" alt="">`:""}<div><span class="live-badge">🔴 LIVE</span><h3 class="live-title">${escapeHtml(live.title)}</h3><div class="channel-url">${escapeHtml(channel.name)}</div><div class="live-meta"><span>👀 ${Number(live.concurrentViewers||0).toLocaleString()}人</span><span>💬 ${Number(live.commentCount||0).toLocaleString()}件</span><span>👍 ${Number(live.likeCount||0).toLocaleString()}件</span></div></div></div>`;
- return card
+ const card=document.createElement("div");
+ card.className="live-card";
+ if(live&&live.isLive&&live.actualStartTime) card.dataset.actualStartTime=live.actualStartTime;
+ if(!live||!live.isLive){
+   card.innerHTML=`<div class="channel-name">${escapeHtml(channel.name)}</div><div class="channel-url">現在LIVEしていません</div>`;
+   return card;
+ }
+ card.innerHTML=`
+   <div class="live-head">
+     ${live.thumbnail?`<img class="live-thumb" src="${escapeHtml(live.thumbnail)}" alt="">`:""}
+     <div>
+       <span class="live-badge">🔴 LIVE中</span>
+       <h3 class="live-title">${escapeHtml(live.title)}</h3>
+       <div class="channel-url">${escapeHtml(channel.name)}</div>
+       <div class="live-meta">
+         <span>👀 ${Number(live.concurrentViewers||0).toLocaleString()}人</span>
+         <span>💬 ${Number(live.commentCount||0).toLocaleString()}件</span>
+         <span>👍 ${Number(live.likeCount||0).toLocaleString()}件</span>
+         <span>⏱️ ${formatElapsed(live.actualStartTime)}</span>
+       </div>
+     </div>
+   </div>`;
+ return card;
 }
 
 async function fetchLive(c){const inputValue=c.youtubeId||getChannelInput(c.url);if(!inputValue)return null;try{const data=await getYouTubeChannel(inputValue);return data.live||null}catch(e){console.warn(c.name,e);return null}}
@@ -92,6 +124,26 @@ saveButton.addEventListener("click",async()=>{
 });
 input.addEventListener("keydown",e=>{if(e.key==="Enter")saveButton.click()});
 refreshButton.addEventListener("click",refreshLive);
+// LIVE判定・視聴者数などを自動更新
+setInterval(refreshLive, 30000);
+
+// 経過時間だけは1秒ごとに画面を更新
+setInterval(()=>{
+ document.querySelectorAll(".live-card").forEach(card=>{
+   const badge=card.querySelector(".live-badge");
+   if(!badge || !badge.textContent.includes("LIVE中")) return;
+   const meta=card.querySelector(".live-meta");
+   if(!meta) return;
+   const spans=meta.querySelectorAll("span");
+   if(!spans.length) return;
+   // APIから取得した開始時刻をdata属性に保存しているカードだけ更新
+   const start=card.dataset.actualStartTime;
+   if(start){
+     spans[spans.length-1].textContent="⏱️ "+formatElapsed(start);
+   }
+ });
+},1000);
+
 
 document.querySelectorAll(".tab").forEach(tab=>tab.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));document.querySelectorAll(".ranking-panel").forEach(p=>p.classList.remove("active"));tab.classList.add("active");document.getElementById(tab.dataset.target).classList.add("active")}));
 
