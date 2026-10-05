@@ -1,5 +1,5 @@
 const STORAGE_KEY="liveStatsChannels";
-const API_URL="https://script.google.com/macros/s/AKfycbzcYXSL04zaQ2Bp1JJXZeLQmrXe7EgEDU_AOq_B4RKiEEa1H5tZUD4FLztk4kCfjk_t8A/exec";
+const API_URL="https://script.google.com/macros/s/AKfycby5JLiPRL5-m6sclrDbbzq3s1lUxo_GUjEfau4Rr3drs4ibFx9M8fd7hqkKUMBxr68lDg/exec";
 
 const defaultChannels=[{id:crypto.randomUUID(),youtubeId:"UCjFkp8GTHneW5pZd3nY-Kfg",name:"すりぴいダッグ",url:"https://www.youtube.com/@SuripiiDuck",status:"登録済み",subscribers:173000}];
 
