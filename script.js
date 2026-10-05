@@ -1,5 +1,5 @@
 const STORAGE_KEY="liveStatsChannels";
-const API_URL="https://script.google.com/macros/s/AKfycby5JLiPRL5-m6sclrDbbzq3s1lUxo_GUjEfau4Rr3drs4ibFx9M8fd7hqkKUMBxr68lDg/exec";
+const API_URL="https://script.google.com/macros/u/4/s/AKfycby5JLiPRL5-m6sclrDbbzq3s1lUxo_GUjEfau4Rr3drs4ibFx9M8fd7hqkKUMBxr68lDg/exec?channel=%40SuripiiDuck&utm_source=chatgpt.com";
 
 // 初期状態ではチャンネルを1件も登録しません。
 // 以前のバージョンで自動登録された「すりぴいダッグ」も初回更新時に削除します。
