@@ -1,9 +1,24 @@
 const STORAGE_KEY="liveStatsChannels";
 const API_URL="https://script.google.com/macros/s/AKfycby5JLiPRL5-m6sclrDbbzq3s1lUxo_GUjEfau4Rr3drs4ibFx9M8fd7hqkKUMBxr68lDg/exec";
 
-const defaultChannels=[{id:crypto.randomUUID(),youtubeId:"UCjFkp8GTHneW5pZd3nY-Kfg",name:"すりぴいダッグ",url:"https://www.youtube.com/@SuripiiDuck",status:"登録済み",subscribers:173000}];
-
-function loadChannels(){try{const s=localStorage.getItem(STORAGE_KEY);if(s)return JSON.parse(s)}catch(e){console.warn(e)}localStorage.setItem(STORAGE_KEY,JSON.stringify(defaultChannels));return defaultChannels}
+// 初期状態ではチャンネルを1件も登録しません。
+// 以前のバージョンで自動登録された「すりぴいダッグ」も初回更新時に削除します。
+function loadChannels(){
+  try{
+    const s=localStorage.getItem(STORAGE_KEY);
+    if(s){
+      let saved=JSON.parse(s);
+      const migrationKey="removedDefaultChannelV2";
+      if(!localStorage.getItem(migrationKey)){
+        saved=saved.filter(c=>c.youtubeId!=="UCjFkp8GTHneW5pZd3nY-Kfg");
+        localStorage.setItem(migrationKey,"1");
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(saved));
+      }
+      return saved;
+    }
+  }catch(e){console.warn(e)}
+  return [];
+}
 let channels=loadChannels();
 
 const channelList=document.getElementById("channelList");
