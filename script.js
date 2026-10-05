@@ -75,7 +75,8 @@ function formatElapsed(startTime){
 function renderLiveCard(channel,live){
  const card=document.createElement("div");
  card.className="live-card";
- if(live&&live.isLive&&live.actualStartTime) card.dataset.actualStartTime=live.actualStartTime;
+ const liveStart=live ? (live.actualStartTime || live.publishedAt || live.scheduledStartTime || "") : "";
+ if(live&&live.isLive&&liveStart) card.dataset.actualStartTime=liveStart;
  if(!live||!live.isLive){
    card.innerHTML=`<div class="channel-name">${escapeHtml(channel.name)}</div><div class="channel-url">現在LIVEしていません</div>`;
    return card;
@@ -91,7 +92,7 @@ function renderLiveCard(channel,live){
          <span>👀 ${Number(live.concurrentViewers||0).toLocaleString()}人</span>
          <span>💬 ${Number(live.commentCount||0).toLocaleString()}件</span>
          <span>👍 ${Number(live.likeCount||0).toLocaleString()}件</span>
-         <span>⏱️ ${formatElapsed(live.actualStartTime)}</span>
+         <span>⏱️ ${formatElapsed(liveStart)}</span>
        </div>
      </div>
    </div>`;
