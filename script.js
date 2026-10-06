@@ -1,5 +1,5 @@
 const STORAGE_KEY="liveStatsChannels";
-const API_URL="https://script.google.com/macros/s/AKfycbwcIRwYLwx1WhaKjOWRs10oxJRD7jFK8A3GyXNpIWzx6dc7MNk4vBLhZgjJaAoOZ-D2ng/exec";
+const API_URL = 'https://script.google.com/macros/s/AKfycbwcIRwYLwx1WhaKjOWRs10oxJRD7jFK8A3GyXNpIWzx6dc7MNk4vBLhZgjJaAoOZ-D2ng/exec';
 
 // 初期状態ではチャンネルを1件も登録しません。
 // 以前のバージョンで自動登録された「すりぴいダッグ」も初回更新時に削除します。
