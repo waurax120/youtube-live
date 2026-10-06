@@ -142,7 +142,7 @@ async function pollChat(){
  if(!chatState.running||!chatState.liveChatId)return;
  try{
   const data=await getChat(chatState.liveChatId,chatState.pageToken);
-  appendChatMessages(data.items||[]);
+  appendChatMessages(data.messages||[]);
   chatState.pageToken=data.nextPageToken||chatState.pageToken;
   if(data.offlineAt){stopChat("LIVE終了");return}
   chatStatus.textContent="🟢 取得中";chatStatus.classList.add("chat-status-live");
