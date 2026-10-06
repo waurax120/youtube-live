@@ -30,6 +30,11 @@ const saveButton=document.getElementById("saveChannel");
 const refreshButton=document.getElementById("refreshLiveButton");
 const input=document.getElementById("channelInput");
 const message=document.getElementById("formMessage");
+const chatList=document.getElementById("chatList");
+const chatStatus=document.getElementById("chatStatus");
+const chatRefreshButton=document.getElementById("chatRefreshButton");
+let chatTimer=null;
+let chatState={liveChatId:"",pageToken:"",running:false,seenIds:new Set(),channelName:""};
 
 function saveChannels(){localStorage.setItem(STORAGE_KEY,JSON.stringify(channels))}
 function escapeHtml(v){return String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
@@ -99,12 +104,79 @@ function renderLiveCard(channel,live){
  return card;
 }
 
+
+function getChat(liveChatId,pageToken=""){
+ return new Promise((resolve,reject)=>{
+  const cb="chatCallback_"+Date.now()+"_"+Math.floor(Math.random()*10000);
+  const s=document.createElement("script");
+  const timer=setTimeout(()=>{cleanup();reject(new Error("LIVEチャットの取得がタイムアウトしました"))},15000);
+  function cleanup(){clearTimeout(timer);delete window[cb];s.remove()}
+  window[cb]=data=>{cleanup();if(data.error||data.success===false){reject(new Error(data.error||"LIVEチャットを取得できませんでした"));return}resolve(data)};
+  s.onerror=()=>{cleanup();reject(new Error("LIVEチャットAPIに接続できませんでした"))};
+  let src=API_URL+"?action=chat&liveChatId="+encodeURIComponent(liveChatId)+"&callback="+encodeURIComponent(cb);
+  if(pageToken)src+="&pageToken="+encodeURIComponent(pageToken);
+  s.src=src;document.body.appendChild(s);
+ });
+}
+function renderChatMessage(msg){
+ const row=document.createElement("div");row.className="chat-message";row.dataset.messageId=msg.id||"";
+ const avatar=msg.profileImageUrl?`<img src="${escapeHtml(msg.profileImageUrl)}" alt="" class="chat-avatar">`:`<div class="chat-avatar chat-avatar-empty">👤</div>`;
+ const badges=[msg.isChatOwner?"配信者":"",msg.isChatModerator?"モデ":"",""].filter(Boolean);
+ const badgeHtml=badges.map(b=>`<span class="chat-badge">${escapeHtml(b)}</span>`).join("");
+ const superHtml=msg.superChat?`<span class="superchat-badge">💰 ${escapeHtml(msg.superChat.amountDisplayString||"Super Chat")}</span>`:"";
+ row.innerHTML=`${avatar}<div class="chat-body"><div class="chat-author"><strong>${escapeHtml(msg.displayName||"不明なユーザー")}</strong>${badgeHtml}${superHtml}</div><div class="chat-text">${escapeHtml(msg.text||"")}</div></div>`;
+ return row;
+}
+function appendChatMessages(items){
+ if(!items||!items.length)return;
+ const fragment=document.createDocumentFragment();
+ items.forEach(msg=>{if(!msg.id||chatState.seenIds.has(msg.id))return;chatState.seenIds.add(msg.id);fragment.appendChild(renderChatMessage(msg));});
+ chatList.appendChild(fragment);
+ while(chatList.children.length>300)chatList.removeChild(chatList.firstChild);
+ chatList.scrollTop=chatList.scrollHeight;
+}
+function stopChat(reason="停止中"){
+ if(chatTimer)clearTimeout(chatTimer);chatTimer=null;chatState.running=false;chatState.liveChatId="";chatState.pageToken="";chatStatus.textContent=reason;chatStatus.classList.remove("chat-status-live");
+}
+async function pollChat(){
+ if(!chatState.running||!chatState.liveChatId)return;
+ try{
+  const data=await getChat(chatState.liveChatId,chatState.pageToken);
+  appendChatMessages(data.items||[]);
+  chatState.pageToken=data.nextPageToken||chatState.pageToken;
+  if(data.offlineAt){stopChat("LIVE終了");return}
+  chatStatus.textContent="🟢 取得中";chatStatus.classList.add("chat-status-live");
+  chatTimer=setTimeout(pollChat,Math.max(1000,Number(data.pollingIntervalMillis||5000)));
+ }catch(e){
+  console.warn(e);chatStatus.textContent="⚠️ "+e.message;chatStatus.classList.remove("chat-status-live");
+  if(chatState.running)chatTimer=setTimeout(pollChat,5000);
+ }
+}
+async function startChatForLive(channel,live){
+ if(!live||!live.isLive||!live.liveChatId){stopChat("チャットなし");chatList.innerHTML='<div class="empty-card">現在LIVE中ではないか、LIVEチャットを取得できません。</div>';return}
+ if(chatTimer)clearTimeout(chatTimer);
+ chatState={liveChatId:live.liveChatId,pageToken:"",running:true,seenIds:new Set(),channelName:channel.name};
+ chatList.innerHTML="";chatStatus.textContent="🟡 接続中…";chatStatus.classList.remove("chat-status-live");await pollChat();
+}
+async function refreshChat(){
+ const liveChannels=[];
+ for(const c of channels){try{const data=await getYouTubeChannel(c.youtubeId||getChannelInput(c.url));if(data.live&&data.live.isLive)liveChannels.push({channel:c,live:data.live});}catch(e){console.warn(c.name,e)}}
+ if(liveChannels.length)await startChatForLive(liveChannels[0].channel,liveChannels[0].live);
+ else{stopChat("停止中");chatList.innerHTML='<div class="empty-card">登録チャンネルで現在LIVE中の配信がありません。</div>'}
+}
+
 async function fetchLive(c){const inputValue=c.youtubeId||getChannelInput(c.url);if(!inputValue)return null;try{const data=await getYouTubeChannel(inputValue);return data.live||null}catch(e){console.warn(c.name,e);return null}}
 
 async function refreshLive(){
  liveList.innerHTML='<div class="empty-card">LIVE情報を更新中…</div>';refreshButton.disabled=true;
- const cards=await Promise.all(channels.map(async c=>renderLiveCard(c,await fetchLive(c))));
- liveList.innerHTML="";if(!cards.length)liveList.innerHTML='<div class="empty-card">登録チャンネルがありません。</div>';else cards.forEach(c=>liveList.appendChild(c));refreshButton.disabled=false
+ const liveResults=await Promise.all(channels.map(async c=>({channel:c,live:await fetchLive(c)})));
+ liveList.innerHTML="";
+ if(!liveResults.length)liveList.innerHTML='<div class="empty-card">登録チャンネルがありません。</div>';
+ else liveResults.forEach(x=>liveList.appendChild(renderLiveCard(x.channel,x.live)));
+ refreshButton.disabled=false;
+ const firstLive=liveResults.find(x=>x.live&&x.live.isLive&&x.live.liveChatId);
+ if(firstLive)await startChatForLive(firstLive.channel,firstLive.live);
+ else{stopChat("停止中");chatList.innerHTML='<div class="empty-card">登録チャンネルで現在LIVE中の配信がありません。</div>'}
 }
 
 function openForm(){form.classList.remove("hidden");input.value="";message.textContent="";input.focus()}
@@ -145,6 +217,8 @@ setInterval(()=>{
  });
 },1000);
 
+
+chatRefreshButton.addEventListener("click",refreshChat);
 
 document.querySelectorAll(".tab").forEach(tab=>tab.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));document.querySelectorAll(".ranking-panel").forEach(p=>p.classList.remove("active"));tab.classList.add("active");document.getElementById(tab.dataset.target).classList.add("active")}));
 

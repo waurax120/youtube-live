@@ -12,6 +12,7 @@
   <nav>
     <a href="#channels">チャンネル</a>
     <a href="#live">LIVE</a>
+    <a href="#chat">チャット</a>
     <a href="#ranking">ランキング</a>
     <a href="#history">過去LIVE</a>
   </nav>
@@ -46,6 +47,20 @@
     <button id="refreshLiveButton" class="secondary-btn">↻ 更新</button>
   </div>
   <div id="liveList" class="live-list"></div>
+</section>
+
+
+<section id="chat" class="section">
+  <div class="section-title">
+    <div><p class="eyebrow">LIVE CHAT</p><h2>リアルタイムチャット</h2></div>
+    <div class="chat-status-wrap">
+      <span id="chatStatus" class="chat-status">停止中</span>
+      <button id="chatRefreshButton" class="secondary-btn">↻ チャット更新</button>
+    </div>
+  </div>
+  <div id="chatList" class="chat-list">
+    <div class="empty-card">LIVE中のチャンネルを登録するとチャットを取得できます。</div>
+  </div>
 </section>
 
 <section id="ranking" class="section">
